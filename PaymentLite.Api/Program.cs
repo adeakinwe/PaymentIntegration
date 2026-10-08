@@ -6,6 +6,10 @@ using PaymentLite.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//Add Controller
+builder.Services.AddControllers();
+
+//Add Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
