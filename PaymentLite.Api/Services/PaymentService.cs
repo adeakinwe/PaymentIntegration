@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using PaymentLite.Api.Data;
 using PaymentLite.Api.DTOs;
 using PaymentLite.Api.Interface;
 using PaymentLite.Api.Models;
+using PaymentLite.Api.Repository;
 
 namespace PaymentLite.Api.Services
 {
@@ -19,32 +21,49 @@ namespace PaymentLite.Api.Services
         }
         public async Task<Payment> ProcessPaymentAsync(PaymentRequest paymentRequest)
         {
-            var sender = await _accountRepo.GetByIdAsync(paymentRequest.senderId);
-            var receiver = await _accountRepo.GetByIdAsync(paymentRequest.receiverId);
+            //await using var trans = await _context.Database.BeginTransactionAsync();
 
-            if (sender == null)
-                throw new Exception("Sender Account not found");
-            if (receiver == null)
-                throw new Exception("Receiver Account not found");
-            if (sender.Balance < paymentRequest.amount)
-                throw new Exception("Insufficient balance");
-
-            sender.Balance -= paymentRequest.amount;
-            receiver.Balance += paymentRequest.amount;
-
-            var payment = new Payment
+            await using (var tran = await _context.Database.BeginTransactionAsync())
             {
-                SenderAccountId = paymentRequest.senderId,
-                ReceiverAccountId = paymentRequest.receiverId,
-                Amount = paymentRequest.amount,
-                Status = "completed",
-                CreatedAt = DateTime.UtcNow
-            };
+                try
+                {
+                    var sender = await _accountRepo.GetByIdAsync(paymentRequest.senderId);
+                    var receiver = await _accountRepo.GetByIdAsync(paymentRequest.receiverId);
 
-            await _paymentRepo.AddAsync(payment);
-            await _paymentRepo.SaveChangesAsync();
+                    if (sender == null)
+                        throw new Exception("Sender Account not found");
+                    if (receiver == null)
+                        throw new Exception("Receiver Account not found");
+                    if (sender.Balance < paymentRequest.amount)
+                        throw new Exception("Insufficient balance");
 
-            return payment;
+                    sender.Balance -= paymentRequest.amount;
+                    receiver.Balance += paymentRequest.amount;
+
+                    var payment = new Payment
+                    {
+                        SenderAccountId = paymentRequest.senderId,
+                        ReceiverAccountId = paymentRequest.receiverId,
+                        Amount = paymentRequest.amount,
+                        Status = "completed",
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _paymentRepo.AddAsync(payment);
+                    await _paymentRepo.SaveChangesAsync();
+
+                    await tran.CommitAsync();
+                    await tran.DisposeAsync();
+                    return payment;
+                }
+                catch (DbUpdateException ex)
+                {
+                    await tran.RollbackAsync();
+                    await tran.DisposeAsync();
+
+                    throw new DbUpdateException(ex.Message);
+                }
+            }
         }
     }
 }
