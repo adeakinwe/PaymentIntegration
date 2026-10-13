@@ -31,14 +31,16 @@ namespace PaymentLite.Api.Services
                     var receiver = await _accountRepo.GetByIdAsync(paymentRequest.receiverId);
 
                     if (sender == null)
-                        throw new Exception("Sender Account not found");
+                        throw new InvalidOperationException("Sender Account not found");
                     if (receiver == null)
-                        throw new Exception("Receiver Account not found");
+                        throw new InvalidOperationException("Receiver Account not found");
                     if (sender.Balance < paymentRequest.amount)
-                        throw new Exception("Insufficient balance");
+                        throw new InvalidOperationException("Insufficient balance");
 
+                    await Task.Delay(3000); //to test concurrency exception, simulate a delay in processing;
                     sender.Balance -= paymentRequest.amount;
                     receiver.Balance += paymentRequest.amount;
+
 
                     var payment = new Payment
                     {
@@ -55,6 +57,10 @@ namespace PaymentLite.Api.Services
                     await tran.CommitAsync();
                     await tran.DisposeAsync();
                     return payment;
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    throw new InvalidOperationException("Account modified by another transaction");
                 }
                 catch (DbUpdateException ex)
                 {

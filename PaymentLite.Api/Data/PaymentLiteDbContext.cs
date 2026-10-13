@@ -27,9 +27,9 @@ namespace PaymentLite.Api.Data
                 entity.HasIndex(a => a.AccountNumber)
                     .IsUnique();
 
-                 entity.Property(a => a.Balance)
-                    .HasPrecision(18, 2)
-                    .IsRequired();
+                entity.Property(a => a.Balance)
+                   .HasPrecision(18, 2)
+                   .IsRequired();
 
                 // entity.Property(a => a.AvailableBalance)
                 //     .HasPrecision(18, 2)
@@ -39,9 +39,11 @@ namespace PaymentLite.Api.Data
                 //     .HasPrecision(18, 2)
                 //     .IsRequired();
 
-                // entity.Property(a => a.RowVersion)
-                //     .IsRowVersion();
-            });
+                entity.Property(a => a.Version)
+                    .HasDefaultValue(1)
+                    .ValueGeneratedOnAddOrUpdate()
+                    .IsConcurrencyToken();         
+           });
 
             modelBuilder.Entity<Payment>(entity =>
             {
@@ -85,8 +87,9 @@ namespace PaymentLite.Api.Data
                     .OnDelete(DeleteBehavior.Restrict);
 
                 // Optimistic concurrency
-                // entity.Property(p => p.RowVersion)
-                //     .IsRowVersion();
+                    // entity.Property(p => p.Version)
+                    // .IsConcurrencyToken()
+                    // .IsRequired();
             });
         }
     }

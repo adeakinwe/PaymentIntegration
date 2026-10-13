@@ -27,6 +27,13 @@ if (!string.IsNullOrWhiteSpace(mysqlPassword) && connectionString.Contains("__DB
 builder.Services.AddDbContext<PaymentLiteDbContext>(options =>
         options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
+builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>(
+    client =>
+    {
+        client.BaseAddress = new Uri(
+            "https://api.paystack.co/");
+    });
+
 //Register Repos and Services
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();

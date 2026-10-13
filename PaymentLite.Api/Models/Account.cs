@@ -12,5 +12,7 @@ namespace PaymentLite.Api.Models
         public string AccountNumber { get; set; } = string.Empty;
 
         public decimal Balance { get; set; }
+
+        public int Version { get; set; }
     }
 }
