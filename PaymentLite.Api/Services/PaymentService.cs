@@ -28,7 +28,7 @@ namespace PaymentLite.Api.Services
 
             if (paymentRequest.amount <= 0)
                 throw new InvalidOperationException("Amount must be greater than zero");
-            if (paymentRequest.email == null || !paymentRequest.email.Contains("@"))
+            if (string.IsNullOrEmpty(paymentRequest.email) || !paymentRequest.email.Contains("@"))
                 throw new InvalidOperationException("Invalid email address");
             if (sender == null)
                 throw new InvalidOperationException("Sender Account not found");

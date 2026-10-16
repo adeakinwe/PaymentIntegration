@@ -11,6 +11,7 @@ namespace PaymentLite.Api.Data
 
         public DbSet<Account> Accounts { get; set; }
         public DbSet<Payment> Payments { get; set; }
+        public DbSet<IdempotencyRecord> IdempotencyRecords { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -90,6 +91,29 @@ namespace PaymentLite.Api.Data
                     // entity.Property(p => p.Version)
                     // .IsConcurrencyToken()
                     // .IsRequired();
+            });
+            
+            modelBuilder.Entity<IdempotencyRecord>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.Key)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.HasIndex(x => x.Key)
+                    .IsUnique();
+
+                entity.Property(x => x.Response)
+                    .IsRequired();
+
+                entity.Property(x => x.CreatedAt)
+                    .IsRequired();
+
+                entity.HasOne(x => x.Payment)
+                    .WithOne()
+                    .HasForeignKey<IdempotencyRecord>(x => x.PaymentId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }
