@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PaymentLite.Api.Data;
 using PaymentLite.Api.DTOs;
@@ -13,23 +14,54 @@ namespace PaymentLite.Api.Services
         private readonly IAccountRepository _accountRepo;
         private readonly IPaymentRepository _paymentRepo;
         private readonly IPaymentGateway _paymentGateway;
+        private readonly IIdempotencyRepository _idempotencyRepo;
 
-        public PaymentService(PaymentLiteDbContext context, IAccountRepository accountRepo, IPaymentRepository paymentRepo, IPaymentGateway paymentGateway)
+        public PaymentService(PaymentLiteDbContext context, IAccountRepository accountRepo,
+        IPaymentRepository paymentRepo, IIdempotencyRepository idempotencyRepo, IPaymentGateway paymentGateway)
         {
             _context = context;
             _accountRepo = accountRepo;
             _paymentRepo = paymentRepo;
             _paymentGateway = paymentGateway;
+            _idempotencyRepo = idempotencyRepo;
         }
-        public async Task<Payment> ProcessPaymentAsync(PaymentRequest paymentRequest, CancellationToken cancellationToken = default)
+        public async Task<Payment> ProcessPaymentAsync(PaymentRequest paymentRequest, string idempotencyKey, CancellationToken cancellationToken = default)
         {
-            var sender = await _accountRepo.GetByIdAsync(paymentRequest.senderId);
-            var receiver = await _accountRepo.GetByIdAsync(paymentRequest.receiverId);
+            // Validate the idempotency key.
+            if (string.IsNullOrWhiteSpace(idempotencyKey) ||
+                idempotencyKey.Length > 100)
+            {
+                throw new ArgumentException(
+                    "A valid idempotency key is required.",
+                    nameof(idempotencyKey));
+            }
 
+            idempotencyKey = idempotencyKey.Trim();
+
+            // check if Idempotency record exist.
+            var existingIdempotencyRecord =
+                await _idempotencyRepo.GetByKeyAsync(
+                    idempotencyKey,
+                    cancellationToken);
+
+            if (existingIdempotencyRecord is not null)
+            {
+                throw new InvalidOperationException(
+                         "Payment record already exist.");
+                // return JsonSerializer.Deserialize<PaymentResponse>(
+                //     existingIdempotencyRecord.Response)
+                //     ?? throw new InvalidOperationException(
+                //         "The stored payment response is invalid.");
+            }
+            
             if (paymentRequest.amount <= 0)
                 throw new InvalidOperationException("Amount must be greater than zero");
             if (string.IsNullOrEmpty(paymentRequest.email) || !paymentRequest.email.Contains("@"))
                 throw new InvalidOperationException("Invalid email address");
+
+            var sender = await _accountRepo.GetByIdAsync(paymentRequest.senderId);
+            var receiver = await _accountRepo.GetByIdAsync(paymentRequest.receiverId);
+
             if (sender == null)
                 throw new InvalidOperationException("Sender Account not found");
             if (receiver == null)
@@ -46,6 +78,7 @@ namespace PaymentLite.Api.Services
                 await _paymentGateway.ProcessPaymentAsync(
                     paymentRequest.amount,
                     paymentRequest.email,
+                    idempotencyKey,
                     cancellationToken);
 
             if (!gatewayResult.Success ||
@@ -65,11 +98,21 @@ namespace PaymentLite.Api.Services
                 CreatedAt = DateTime.UtcNow
             };
 
+            var idempotencyRecord = new IdempotencyRecord
+            {
+                Key = idempotencyKey,
+                PaymentId = payment.Id,
+                Response = JsonSerializer.Serialize(gatewayResult),
+                CreatedAt = DateTime.UtcNow,
+                Payment = payment
+            };
             await using (var tran = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
                     await _paymentRepo.AddAsync(payment);
+                    await _idempotencyRepo.AddAsync(idempotencyRecord, cancellationToken);
+                    
                     await _paymentRepo.SaveChangesAsync(cancellationToken);
 
                     await tran.CommitAsync(cancellationToken);

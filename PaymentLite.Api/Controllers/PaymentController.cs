@@ -16,11 +16,19 @@ namespace PaymentLite.Api.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> ProcessPaymentAsync(PaymentRequest request)
+        public async Task<IActionResult> ProcessPaymentAsync(PaymentRequest request, [
+            FromHeader(Name = "Idempotency-Key")] string? idempotencyKey, CancellationToken cancellationToken)
         {
             try
             {
-                var payment = await _paymentService.ProcessPaymentAsync(request);
+                if (string.IsNullOrWhiteSpace(idempotencyKey))
+                {
+                    return BadRequest(new
+                    {
+                        message = "Idempotency-Key header is required."
+                    });
+                }
+                var payment = await _paymentService.ProcessPaymentAsync(request, idempotencyKey, cancellationToken);
 
                 if (payment != null)
                 {

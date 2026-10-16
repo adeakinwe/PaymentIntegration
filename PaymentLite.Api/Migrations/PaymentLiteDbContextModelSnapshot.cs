@@ -22,6 +22,40 @@ namespace PaymentLite.Api.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("IdempotencyRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<long>("PaymentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Response")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique();
+
+                    b.ToTable("IdempotencyRecords");
+                });
+
             modelBuilder.Entity("PaymentLite.Api.Models.Account", b =>
                 {
                     b.Property<long>("Id")
@@ -86,6 +120,17 @@ namespace PaymentLite.Api.Migrations
                     b.HasIndex("SenderAccountId");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("IdempotencyRecord", b =>
+                {
+                    b.HasOne("PaymentLite.Api.Models.Payment", "Payment")
+                        .WithOne()
+                        .HasForeignKey("IdempotencyRecord", "PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Payment");
                 });
 
             modelBuilder.Entity("PaymentLite.Api.Models.Payment", b =>

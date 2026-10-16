@@ -7,6 +7,7 @@ public interface IPaymentGateway
     Task<PaymentGatewayResponse> ProcessPaymentAsync(
         decimal amount,
         string email,
+        string idempotencyKey,
         CancellationToken cancellationToken = default);
 }
 }

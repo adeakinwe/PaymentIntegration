@@ -16,6 +16,7 @@ namespace PaymentLite.Api.Services
         public async Task<PaymentGatewayResponse> ProcessPaymentAsync(
             decimal amount,
             string email,
+            string idempotencyKey,
             CancellationToken cancellationToken = default)
         {
             var request = new

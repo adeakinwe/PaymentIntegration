@@ -44,6 +44,7 @@ builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>(
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IIdempotencyRepository, IdempotencyRepository>();
 
 var app = builder.Build();
 var env = app.Environment;
