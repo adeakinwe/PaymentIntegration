@@ -12,45 +12,45 @@ namespace PaymentLite.Api.Services
         private readonly PaymentLiteDbContext _context;
         private readonly IAccountRepository _accountRepo;
         private readonly IPaymentRepository _paymentRepo;
+        private readonly IPaymentGateway _paymentGateway;
 
-        public PaymentService(PaymentLiteDbContext context, IAccountRepository accountRepo, IPaymentRepository paymentRepo)
+        public PaymentService(PaymentLiteDbContext context, IAccountRepository accountRepo, IPaymentRepository paymentRepo, IPaymentGateway paymentGateway)
         {
             _context = context;
             _accountRepo = accountRepo;
             _paymentRepo = paymentRepo;
+            _paymentGateway = paymentGateway;
         }
         public async Task<Payment> ProcessPaymentAsync(PaymentRequest paymentRequest)
         {
-            //await using var trans = await _context.Database.BeginTransactionAsync();
+            var sender = await _accountRepo.GetByIdAsync(paymentRequest.senderId);
+            var receiver = await _accountRepo.GetByIdAsync(paymentRequest.receiverId);
+
+            if (sender == null)
+                throw new InvalidOperationException("Sender Account not found");
+            if (receiver == null)
+                throw new InvalidOperationException("Receiver Account not found");
+            if (sender.Balance < paymentRequest.amount)
+                throw new InvalidOperationException("Insufficient balance");
+
+            await Task.Delay(3000); //to test concurrency exception, simulate a delay in processing;
+            sender.Balance -= paymentRequest.amount;
+            receiver.Balance += paymentRequest.amount;
+
+
+            var payment = new Payment
+            {
+                SenderAccountId = paymentRequest.senderId,
+                ReceiverAccountId = paymentRequest.receiverId,
+                Amount = paymentRequest.amount,
+                Status = "completed",
+                CreatedAt = DateTime.UtcNow
+            };
 
             await using (var tran = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
-                    var sender = await _accountRepo.GetByIdAsync(paymentRequest.senderId);
-                    var receiver = await _accountRepo.GetByIdAsync(paymentRequest.receiverId);
-
-                    if (sender == null)
-                        throw new InvalidOperationException("Sender Account not found");
-                    if (receiver == null)
-                        throw new InvalidOperationException("Receiver Account not found");
-                    if (sender.Balance < paymentRequest.amount)
-                        throw new InvalidOperationException("Insufficient balance");
-
-                    await Task.Delay(3000); //to test concurrency exception, simulate a delay in processing;
-                    sender.Balance -= paymentRequest.amount;
-                    receiver.Balance += paymentRequest.amount;
-
-
-                    var payment = new Payment
-                    {
-                        SenderAccountId = paymentRequest.senderId,
-                        ReceiverAccountId = paymentRequest.receiverId,
-                        Amount = paymentRequest.amount,
-                        Status = "completed",
-                        CreatedAt = DateTime.UtcNow
-                    };
-
                     await _paymentRepo.AddAsync(payment);
                     await _paymentRepo.SaveChangesAsync();
 

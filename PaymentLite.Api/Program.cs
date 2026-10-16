@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 using PaymentLite.Api.Data;
 using PaymentLite.Api.Interface;
@@ -32,6 +33,11 @@ builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>(
     {
         client.BaseAddress = new Uri(
             "https://api.paystack.co/");
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                builder.Configuration["Gateway:SecretKey"]);
     });
 
 //Register Repos and Services
