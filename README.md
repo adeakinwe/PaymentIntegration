@@ -1,6 +1,6 @@
-# PaymentLite
+# PaymentIntegration
 
-PaymentLite is a .NET ASP.NET Core Web API that models a lightweight payment orchestration service. It validates account balances, enforces idempotent payment processing, persists payment state in MySQL, and delegates external payment initialization to a payment gateway.
+Payment Integration is a .NET RESTful API for a mini payment system, featuring payment processing through payment gateway, idempotency to curb duplicate payments, optimistic concurrency control, and transactional data consistency.
 
 ## Overview
 
