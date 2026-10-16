@@ -8,6 +8,6 @@ namespace PaymentLite.Api.Interface
 
         Task AddAsync(Payment payment);
 
-        Task<bool> SaveChangesAsync();
+        Task<bool> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

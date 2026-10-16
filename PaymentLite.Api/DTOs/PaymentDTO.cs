@@ -5,6 +5,7 @@ namespace PaymentLite.Api.DTOs
         public long senderId { get; set; }
         public long receiverId { get; set; }
         public decimal amount { get; set; }
+        public string email { get; set; } = null!;
     }
 
     public class PaymentResponse
@@ -24,15 +25,15 @@ namespace PaymentLite.Api.DTOs
     }
 
     public class GatewayResponse
-{
-    public bool Status { get; set; }
-    public string? Message { get; set; }
-    public GatewayData? Data { get; set; }
-}
+    {
+        public bool Status { get; set; }
+        public string? Message { get; set; }
+        public GatewayData? Data { get; set; }
+    }
 
-public class GatewayData
-{
-    public string? Reference { get; set; }
-    public string? AuthorizationUrl { get; set; }
-}
+    public class GatewayData
+    {
+        public string? Reference { get; set; }
+        public string? AuthorizationUrl { get; set; }
+    }
 }

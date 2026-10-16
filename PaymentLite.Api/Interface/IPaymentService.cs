@@ -5,6 +5,6 @@ namespace PaymentLite.Api.Services
 {
     public interface IPaymentService
     {
-        Task<Payment> ProcessPaymentAsync(PaymentRequest paymentRequest);
+        Task<Payment> ProcessPaymentAsync(PaymentRequest paymentRequest, CancellationToken cancellationToken = default);
     }
 }

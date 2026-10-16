@@ -21,11 +21,15 @@ namespace PaymentLite.Api.Services
             _paymentRepo = paymentRepo;
             _paymentGateway = paymentGateway;
         }
-        public async Task<Payment> ProcessPaymentAsync(PaymentRequest paymentRequest)
+        public async Task<Payment> ProcessPaymentAsync(PaymentRequest paymentRequest, CancellationToken cancellationToken = default)
         {
             var sender = await _accountRepo.GetByIdAsync(paymentRequest.senderId);
             var receiver = await _accountRepo.GetByIdAsync(paymentRequest.receiverId);
 
+            if (paymentRequest.amount <= 0)
+                throw new InvalidOperationException("Amount must be greater than zero");
+            if (paymentRequest.email == null || !paymentRequest.email.Contains("@"))
+                throw new InvalidOperationException("Invalid email address");
             if (sender == null)
                 throw new InvalidOperationException("Sender Account not found");
             if (receiver == null)
@@ -37,6 +41,20 @@ namespace PaymentLite.Api.Services
             sender.Balance -= paymentRequest.amount;
             receiver.Balance += paymentRequest.amount;
 
+            // Initialize the payment OUTSIDE a database transaction.
+            var gatewayResult =
+                await _paymentGateway.ProcessPaymentAsync(
+                    paymentRequest.amount,
+                    paymentRequest.email,
+                    cancellationToken);
+
+            if (!gatewayResult.Success ||
+                string.IsNullOrWhiteSpace(gatewayResult.Reference))
+            {
+                throw new InvalidOperationException(
+                    gatewayResult.Message
+                    ?? "Unable to initialize the payment.");
+            }
 
             var payment = new Payment
             {
@@ -52,9 +70,9 @@ namespace PaymentLite.Api.Services
                 try
                 {
                     await _paymentRepo.AddAsync(payment);
-                    await _paymentRepo.SaveChangesAsync();
+                    await _paymentRepo.SaveChangesAsync(cancellationToken);
 
-                    await tran.CommitAsync();
+                    await tran.CommitAsync(cancellationToken);
                     await tran.DisposeAsync();
                     return payment;
                 }
@@ -64,7 +82,7 @@ namespace PaymentLite.Api.Services
                 }
                 catch (DbUpdateException ex)
                 {
-                    await tran.RollbackAsync();
+                    await tran.RollbackAsync(cancellationToken);
                     await tran.DisposeAsync();
 
                     throw new DbUpdateException(ex.Message);

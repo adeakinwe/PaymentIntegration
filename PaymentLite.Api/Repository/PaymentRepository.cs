@@ -25,7 +25,7 @@ namespace PaymentLite.Api.Repository
             return payment;
         }
 
-        public async Task<bool> SaveChangesAsync()
+        public async Task<bool> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             return await _context.SaveChangesAsync() >= 0;
         }
