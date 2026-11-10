@@ -12,6 +12,7 @@ namespace PaymentLite.Api.Data
         public DbSet<Account> Accounts { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<IdempotencyRecord> IdempotencyRecords { get; set; }
+        public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -114,6 +115,31 @@ namespace PaymentLite.Api.Data
                     .WithOne()
                     .HasForeignKey<IdempotencyRecord>(x => x.PaymentId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+            
+            modelBuilder.Entity<OutboxMessage>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.Type)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(x => x.Payload)
+                    .IsRequired()
+                    .HasColumnType("json");
+
+                entity.Property(x => x.Status)
+                    .IsRequired()
+                    .HasMaxLength(20);
+
+                entity.Property(x => x.CreatedAt)
+                    .IsRequired();
+
+                entity.Property(x => x.LastError)
+                    .HasMaxLength(2000);
+
+                entity.HasIndex(x => new { x.Status, x.CreatedAt });
             });
         }
     }
