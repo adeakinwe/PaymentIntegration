@@ -144,6 +144,10 @@ namespace PaymentLite.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("GatewayReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<long>("ReceiverAccountId")
                         .HasColumnType("bigint");
 

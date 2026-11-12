@@ -62,6 +62,8 @@ namespace PaymentLite.Api.Data
 
                 entity.Property(p => p.CreatedAt)
                     .IsRequired();
+                entity.Property(p => p.GatewayReference)
+                    .HasMaxLength(100);
 
                 // entity.Property(p => p.IdempotencyKey)
                 //     .IsRequired()
