@@ -21,7 +21,8 @@ namespace PaymentLite.Api.Repository
 
         public async Task<List<OutboxMessage>> GetPendingMessagesAsync(int batchSize, CancellationToken cancellationToken = default)
         {
-            return await _context.OutboxMessages.Where(m => m.Status == "Pending" || m.Status == "Failed")
+            return await _context.OutboxMessages
+            .Where(m => m.Status == "Pending" || m.Status == "Failed" || m.Status == "Processing")
             .OrderBy(m => m.CreatedAt).Take(batchSize).ToListAsync(cancellationToken);
         }
 

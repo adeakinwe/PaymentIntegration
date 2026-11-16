@@ -21,13 +21,13 @@ namespace PaymentLite.Api.Services
         {
             var request = new
             {
-                amount = amount * 100, //kobo
+                amount = amount,
                 email = email,
-                reference = Guid.NewGuid().ToString()
+                idempotencyKey = idempotencyKey
             };
 
             var response = await _httpClient.PostAsJsonAsync(
-                "transaction/initialize",
+                "http://localhost:5147/api/ExternalPayment/payment",
                 request,
                 cancellationToken);
 
@@ -39,8 +39,8 @@ namespace PaymentLite.Api.Services
 
             return new PaymentGatewayResponse
             {
-                Success = result?.Status ?? false,
-                Reference = result?.Data?.Reference,
+                Success = result?.Success ?? false,
+                Reference = result?.Reference,
                 Message = result?.Message
             };
         }
