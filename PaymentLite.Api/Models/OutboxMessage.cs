@@ -29,5 +29,6 @@ namespace PaymentLite.Api.Models
 
         [MaxLength(2000)]
         public string? LastError { get; set; }
+        public DateTime? NextAttemptAt { get; set; }
     }
 }

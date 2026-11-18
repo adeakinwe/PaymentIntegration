@@ -105,6 +105,9 @@ namespace PaymentLite.Api.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Payload")
                         .IsRequired()
                         .HasColumnType("json");
