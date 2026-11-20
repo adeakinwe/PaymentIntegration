@@ -71,22 +71,6 @@ namespace PaymentLite.Api.Services
 
             await Task.Delay(3000); //to test concurrency exception, simulate a delay in processing;
 
-            // Initialize the payment OUTSIDE a database transaction.
-            // var gatewayResult =
-            //     await _paymentGateway.ProcessPaymentAsync(
-            //         paymentRequest.amount,
-            //         paymentRequest.email,
-            //         idempotencyKey,
-            //         cancellationToken);
-
-            // if (!gatewayResult.Success ||
-            //     string.IsNullOrWhiteSpace(gatewayResult.Reference))
-            // {
-            //     throw new InvalidOperationException(
-            //         gatewayResult.Message
-            //         ?? "Unable to initialize the payment.");
-            // }
-
             await using (var tran = await _context.Database.BeginTransactionAsync())
             {
                 sender.Balance -= paymentRequest.amount;

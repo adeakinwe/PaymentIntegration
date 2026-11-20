@@ -10,6 +10,9 @@ namespace PaymentLite.Api.Services
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<OutboxProcessor> _logger;
+        private const int initialDelaySecs = 5;
+        private const int maxDelaySecs = 60;
+        private const int maxAttempts = 5;
 
         public OutboxProcessor(
             IServiceScopeFactory scopeFactory,
@@ -128,6 +131,7 @@ namespace PaymentLite.Api.Services
                     // 6. Mark outbox message as processed.
                     message.Status = "Processed";
                     message.ProcessedAt = DateTime.UtcNow;
+                    message.NextAttemptAt = null;
                     message.LastError = null;
 
                     await outboxRepo.SaveChangesAsync(
@@ -144,25 +148,90 @@ namespace PaymentLite.Api.Services
                 }
                 catch (Exception ex)
                 {
-                    message.Status = "Failed";
+                    message.AttemptCount++;
                     message.LastError = ex.Message.Length > 2000
                         ? ex.Message[..2000]
                         : ex.Message;
 
+                    var shouldRetry = IsTransientException(ex) && message.AttemptCount < maxAttempts;
                     if (payment != null)
                     {
                         payment.Status = "InitializationFailed";
                     }
 
+                    if (shouldRetry)
+                    {
+                        var delay = CalculateRetryDelay(
+                            message.AttemptCount);
+
+                        message.Status = "Pending";
+                        message.NextAttemptAt = DateTime.UtcNow.Add(delay);
+
+                        _logger.LogWarning(
+                            ex,
+                            "Outbox message {MessageId} failed. " +
+                            "Retry {AttemptCount}/{MaxAttempts} scheduled at {NextAttemptAt}.",
+                            message.Id,
+                            message.AttemptCount,
+                            maxAttempts,
+                            message.NextAttemptAt);
+                    }
+                    else
+                    {
+                        message.Status = "Failed";
+                        message.NextAttemptAt = null;
+
+                        if (payment != null)
+                        {
+                            payment.Status = "InitializationFailed";
+                        }
+
+                        _logger.LogError(
+                            ex,
+                            "Outbox message {MessageId} permanently failed " +
+                            "after {AttemptCount} attempts.",
+                            message.Id,
+                            message.AttemptCount);
+                    }
+
                     await outboxRepo.SaveChangesAsync(
                         cancellationToken);
-
-                    _logger.LogError(
-                        ex,
-                        "Failed to process outbox message {MessageId}.",
-                        message.Id);
                 }
             }
+        }
+
+        private static TimeSpan CalculateRetryDelay(int attemptCount)
+        {
+            var delay = Math.Min(initialDelaySecs * Math.Pow(2, attemptCount - 1), maxDelaySecs);
+
+            // Add random variation between 80% and 120%.
+            var jitter = Random.Shared.NextDouble() * 0.4 + 0.8;
+
+            return TimeSpan.FromSeconds(
+                delay * jitter);
+        }
+
+        private static bool IsTransientException(Exception ex)
+        {
+            if (ex is HttpRequestException httpException)
+            {
+                if (httpException.StatusCode is not { } statusCode)
+                    return true;
+
+                return httpException.StatusCode == null ||
+                       httpException.StatusCode ==
+                           System.Net.HttpStatusCode.RequestTimeout ||
+                       httpException.StatusCode ==
+                           System.Net.HttpStatusCode.TooManyRequests ||
+                       (int)httpException.StatusCode >= 500;
+            }
+
+            if (ex is TaskCanceledException)
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }
