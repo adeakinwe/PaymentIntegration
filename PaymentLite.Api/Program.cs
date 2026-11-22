@@ -1,9 +1,11 @@
 using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
 using PaymentLite.Api.Data;
 using PaymentLite.Api.Interface;
 using PaymentLite.Api.Repository;
 using PaymentLite.Api.Services;
+using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,13 +34,25 @@ builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>(
     client =>
     {
         client.BaseAddress = new Uri(
-            "https://api.paystack.co/");
+            "https://api.paymentgateway.co/");
 
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue(
                 "Bearer",
                 builder.Configuration["Gateway:SecretKey"]);
-    });
+    }).AddResilienceHandler(
+        "payment-gateway-circuit-breaker",
+        static pipeline =>
+        {
+            pipeline.AddCircuitBreaker(
+                new HttpCircuitBreakerStrategyOptions
+                {
+                    FailureRatio = 0.5,
+                    MinimumThroughput = 2,
+                    SamplingDuration = TimeSpan.FromMinutes(1),
+                    BreakDuration = TimeSpan.FromSeconds(30)
+                });
+        });
 
 //Register Repos and Services
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();

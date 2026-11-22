@@ -213,6 +213,9 @@ namespace PaymentLite.Api.Services
 
         private static bool IsTransientException(Exception ex)
         {
+            if (ex is Polly.CircuitBreaker.BrokenCircuitException)
+                return true;
+                
             if (ex is HttpRequestException httpException)
             {
                 if (httpException.StatusCode is not { } statusCode)
