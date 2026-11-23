@@ -40,10 +40,14 @@ builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>(
             new AuthenticationHeaderValue(
                 "Bearer",
                 builder.Configuration["Gateway:SecretKey"]);
+
+        // Request timeout control by Polly.
+        client.Timeout = Timeout.InfiniteTimeSpan;
     }).AddResilienceHandler(
         "payment-gateway-circuit-breaker",
         static pipeline =>
         {
+            //Circuit breaker
             pipeline.AddCircuitBreaker(
                 new HttpCircuitBreakerStrategyOptions
                 {
@@ -52,6 +56,10 @@ builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>(
                     SamplingDuration = TimeSpan.FromMinutes(1),
                     BreakDuration = TimeSpan.FromSeconds(30)
                 });
+
+            // Timeout
+            pipeline.AddTimeout(
+                TimeSpan.FromSeconds(10));
         });
 
 //Register Repos and Services

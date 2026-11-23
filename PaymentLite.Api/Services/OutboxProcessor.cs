@@ -215,7 +215,8 @@ namespace PaymentLite.Api.Services
         {
             if (ex is Polly.CircuitBreaker.BrokenCircuitException)
                 return true;
-                
+            if (ex is Polly.Timeout.TimeoutRejectedException)
+                return true; 
             if (ex is HttpRequestException httpException)
             {
                 if (httpException.StatusCode is not { } statusCode)
