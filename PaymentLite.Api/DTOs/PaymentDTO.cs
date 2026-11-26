@@ -22,6 +22,7 @@ namespace PaymentLite.Api.DTOs
         public bool Success { get; set; }
         public string? Reference { get; set; }
         public string? Message { get; set; }
+        public string? Status { get; set; }
     }
 
     public class GatewayResponse
@@ -30,6 +31,7 @@ namespace PaymentLite.Api.DTOs
         public string? Message { get; set; }
         public GatewayData? Data { get; set; }
         public string? Reference { get; set; }
+        public string? Status { get; set; }
     }
 
     public class GatewayData

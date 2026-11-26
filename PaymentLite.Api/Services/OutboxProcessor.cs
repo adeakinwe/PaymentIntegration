@@ -80,6 +80,7 @@ namespace PaymentLite.Api.Services
                 cancellationToken.ThrowIfCancellationRequested();
 
                 Payment? payment = null;
+                PaymentInitRequestDTO? paymentEvent = null;
                 try
                 {
                     // 1. Mark message as Processing.
@@ -89,7 +90,7 @@ namespace PaymentLite.Api.Services
                         cancellationToken);
 
                     // 2. Deserialize event payload.
-                    var paymentEvent =
+                    paymentEvent =
                         JsonSerializer.Deserialize<
                             PaymentInitRequestDTO>(
                                 message.Payload)
@@ -148,6 +149,46 @@ namespace PaymentLite.Api.Services
                 }
                 catch (Exception ex)
                 {
+                    if (IsAmbiguousGatewayOutcome(ex))
+                    {
+                        if (paymentEvent != null && payment != null)
+                        {
+                            var gatewayStatus = await paymentGateway.GetPaymentStatusAsync(paymentEvent.IdempotencyKey,
+                             cancellationToken);
+
+                            if (gatewayStatus != null)
+                            {
+                                switch (gatewayStatus.Status)
+                                {
+                                    case "Successful":
+                                        payment.Status = "Initialized";
+                                        payment.GatewayReference = gatewayStatus.Reference;
+                                        message.Status = "Processed";
+                                        message.ProcessedAt = DateTime.UtcNow;
+                                        message.NextAttemptAt = null;
+                                        message.LastError = null;
+
+                                        await outboxRepo.SaveChangesAsync(cancellationToken);
+                                        continue;
+
+                                    case "Pending":
+                                        // Eligible for another retry.
+                                        break;
+
+                                    case "Failed":
+                                        // The gateway confirms that the operation failed.
+                                        payment.Status = "InitializationFailed";
+                                        message.Status = "Failed";
+                                        message.NextAttemptAt = null;
+
+                                        await outboxRepo.SaveChangesAsync(cancellationToken);
+                                        continue;
+                                }
+                            }
+                        }
+                    }
+
+                    // If the outcome remains unknown, use the retry mechanism.
                     message.AttemptCount++;
                     message.LastError = ex.Message.Length > 2000
                         ? ex.Message[..2000]
@@ -216,7 +257,7 @@ namespace PaymentLite.Api.Services
             if (ex is Polly.CircuitBreaker.BrokenCircuitException)
                 return true;
             if (ex is Polly.Timeout.TimeoutRejectedException)
-                return true; 
+                return true;
             if (ex is HttpRequestException httpException)
             {
                 if (httpException.StatusCode is not { } statusCode)
@@ -236,6 +277,12 @@ namespace PaymentLite.Api.Services
             }
 
             return false;
+        }
+        private static bool IsAmbiguousGatewayOutcome(Exception ex)
+        {
+            return ex is Polly.Timeout.TimeoutRejectedException
+                || ex is HttpRequestException
+                || ex is Polly.CircuitBreaker.BrokenCircuitException;
         }
     }
 }
