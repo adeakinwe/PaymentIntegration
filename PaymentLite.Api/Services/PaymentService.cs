@@ -138,5 +138,51 @@ namespace PaymentLite.Api.Services
                 }
             }
         }
+
+        public async Task CompensatePaymentAsync(long paymentId, CancellationToken cancellationToken)
+        {
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync(
+                    cancellationToken);
+
+            try
+            {
+                var payment = await _paymentRepo.GetByIdAsync(paymentId);
+
+                if (payment == null)
+                    throw new InvalidOperationException("Payment not found.");
+
+                if (payment.Status == "Compensated")
+                    return;
+
+                if (payment.Status != "InitializationFailed")
+                    throw new InvalidOperationException(
+                        "Only failed payments can be compensated.");
+
+                var sender = await _accountRepo.GetByIdAsync(
+                    payment.SenderAccountId);
+
+                var receiver = await _accountRepo.GetByIdAsync(
+                    payment.ReceiverAccountId);
+
+                if (sender == null || receiver == null)
+                    throw new InvalidOperationException(
+                        "Payment accounts could not be found.");
+
+                sender.Balance += payment.Amount;
+                receiver.Balance -= payment.Amount;
+
+                payment.Status = "Compensated";
+
+                await _context.SaveChangesAsync(cancellationToken);
+
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+                throw;
+            }
+        }
     }
 }

@@ -48,7 +48,7 @@ namespace PaymentLite.Api.Services
                 }
 
                 await Task.Delay(
-                    TimeSpan.FromSeconds(5),
+                    TimeSpan.FromSeconds(10),
                     stoppingToken);
             }
 
@@ -56,8 +56,7 @@ namespace PaymentLite.Api.Services
                 "Outbox Processor stopped.");
         }
 
-        private async Task ProcessPendingMessagesAsync(
-            CancellationToken cancellationToken)
+        private async Task ProcessPendingMessagesAsync(CancellationToken cancellationToken)
         {
             using var scope = _scopeFactory.CreateScope();
 
@@ -69,6 +68,9 @@ namespace PaymentLite.Api.Services
 
             var paymentGateway = scope.ServiceProvider
                 .GetRequiredService<IPaymentGateway>();
+            
+            var paymentService = scope.ServiceProvider
+                .GetRequiredService<IPaymentService>();
 
             var messages =
                 await outboxRepo.GetPendingMessagesAsync(
@@ -182,6 +184,7 @@ namespace PaymentLite.Api.Services
                                         message.NextAttemptAt = null;
 
                                         await outboxRepo.SaveChangesAsync(cancellationToken);
+                                        await paymentService.CompensatePaymentAsync(payment.Id, cancellationToken);
                                         continue;
                                 }
                             }
@@ -195,10 +198,6 @@ namespace PaymentLite.Api.Services
                         : ex.Message;
 
                     var shouldRetry = IsTransientException(ex) && message.AttemptCount < maxAttempts;
-                    if (payment != null)
-                    {
-                        payment.Status = "InitializationFailed";
-                    }
 
                     if (shouldRetry)
                     {
@@ -225,6 +224,7 @@ namespace PaymentLite.Api.Services
                         if (payment != null)
                         {
                             payment.Status = "InitializationFailed";
+                            await paymentService.CompensatePaymentAsync(payment.Id, cancellationToken);
                         }
 
                         _logger.LogError(
