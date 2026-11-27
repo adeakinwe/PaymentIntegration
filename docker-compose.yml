@@ -1,0 +1,18 @@
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.4.1-management
+    container_name: paymentintegration-rabbitmq
+    hostname: paymentintegration-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: paymentadmin
+      RABBITMQ_DEFAULT_PASS: dev_password_123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
