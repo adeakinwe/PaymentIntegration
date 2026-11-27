@@ -79,7 +79,8 @@ namespace PaymentLite.Api.Services
             {
                 Success = result?.Success ?? false,
                 Reference = result?.Reference,
-                Message = result?.Message
+                Message = result?.Message,
+                Status = result?.Status
             };
         }
     }

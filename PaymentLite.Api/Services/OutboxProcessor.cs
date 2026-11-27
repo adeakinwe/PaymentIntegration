@@ -117,25 +117,43 @@ namespace PaymentLite.Api.Services
                             paymentEvent.IdempotencyKey,
                             cancellationToken);
 
-                    if (!gatewayResult.Success ||
-                        string.IsNullOrWhiteSpace(
-                            gatewayResult.Reference))
+                    if (!gatewayResult.Success || string.IsNullOrWhiteSpace(gatewayResult.Reference))
                     {
                         throw new InvalidOperationException(
                             gatewayResult.Message ??
                             "Payment initialization failed.");
                     }
 
-                    // 5. Update payment.
-                    payment.Status = "Initialized";
-                    payment.GatewayReference =
-                        gatewayResult.Reference;
+                    if (gatewayResult != null)
+                    {
+                        switch (gatewayResult.Status)
+                        {
+                            case "Successful":
+                                payment.Status = "Initialized";
+                                payment.GatewayReference = gatewayResult.Reference;
+                                message.Status = "Processed";
+                                message.ProcessedAt = DateTime.UtcNow;
+                                message.NextAttemptAt = null;
+                                message.LastError = null;
 
-                    // 6. Mark outbox message as processed.
-                    message.Status = "Processed";
-                    message.ProcessedAt = DateTime.UtcNow;
-                    message.NextAttemptAt = null;
-                    message.LastError = null;
+                                await outboxRepo.SaveChangesAsync(cancellationToken);
+                                continue;
+
+                            case "Pending":
+                                // Eligible for another retry.
+                                break;
+
+                            case "Failed":
+                                // The gateway confirms that the operation failed.
+                                payment.Status = "InitializationFailed";
+                                message.Status = "Failed";
+                                message.NextAttemptAt = null;
+
+                                await outboxRepo.SaveChangesAsync(cancellationToken);
+                                await paymentService.CompensatePaymentAsync(payment.Id, cancellationToken);
+                                continue;
+                        }
+                    }
 
                     await outboxRepo.SaveChangesAsync(
                         cancellationToken);
