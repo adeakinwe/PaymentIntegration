@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http.Resilience;
+using PaymentLite.Api;
 using PaymentLite.Api.Data;
 using PaymentLite.Api.Interface;
 using PaymentLite.Api.Repository;
@@ -69,6 +70,15 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IIdempotencyRepository, IdempotencyRepository>();
 builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
 builder.Services.AddHostedService<OutboxProcessor>();
+
+//Register RabbitMQ Services
+builder.Services.Configure<RabbitMqOptions>(
+    builder.Configuration.GetSection("RabbitMQ"));
+
+builder.Services.AddSingleton<RabbitMqConnectionService>();
+
+builder.Services.AddHostedService(provider =>
+    provider.GetRequiredService<RabbitMqConnectionService>());
 
 var app = builder.Build();
 var env = app.Environment;
