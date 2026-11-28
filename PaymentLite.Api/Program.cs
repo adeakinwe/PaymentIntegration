@@ -80,6 +80,8 @@ builder.Services.AddSingleton<RabbitMqConnectionService>();
 builder.Services.AddHostedService(provider =>
     provider.GetRequiredService<RabbitMqConnectionService>());
 
+builder.Services.AddSingleton<RabbitMqPublisher>();
+
 var app = builder.Build();
 var env = app.Environment;
 
